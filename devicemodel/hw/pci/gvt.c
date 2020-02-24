@@ -211,6 +211,7 @@ gvt_init_config(struct pci_gvt *gvt)
 	/* In GVT-g design, it only use pci bar0 and bar2,
 	 * So we need reserve bar0 region and bar2 region only
 	 */
+	perror("DEBUG_SUN: gvt_init_config: MMIO Reserved Rigon\n");
 	ret = create_mmio_rsvd_rgn(bar0_start_addr,
 				bar0_end_addr, 0, PCIBAR_MEM32, gvt->gvt_pi);
 	if(ret != 0)
@@ -366,6 +367,7 @@ pci_gvt_init(struct vmctx *ctx, struct pci_vdev *pi, char *opts)
 	int ret;
 	struct pci_gvt *gvt = NULL;
 
+	perror("DEBUG_SUN: pci_gvt_init\n");
 	gvt = calloc(1, sizeof(struct pci_gvt));
 	if (!gvt) {
 		perror("gvt:calloc gvt failed\n");

@@ -495,6 +495,27 @@ vm_map_ptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 	return ioctl(ctx->fd, IC_SET_MEMSEG, &memmap);
 }
 
+//DEBUG_SUN: vm map with reserve address
+int
+vm_map_ptdev_mmio_rsv(struct vmctx *ctx, int bus, int slot, int func,
+		   vm_paddr_t gpa, size_t len, vm_paddr_t hpa, vm_paddr_t rsv_gpa)
+{
+	struct vm_memmap memmap;
+
+	pr_err("DEBUG_SUN: reserve memory address: 0x%x", rsv_gpa);
+	bzero(&memmap, sizeof(struct vm_memmap));
+	memmap.type = VM_MMIO;
+	memmap.len = len;
+	memmap.gpa = gpa;
+	memmap.hpa = hpa;
+	memmap.prot = PROT_ALL;
+	memmap.rsv_gpa = rsv_gpa;
+
+	return ioctl(ctx->fd, IC_SET_MEMSEG, &memmap);
+}
+
+//DEBUG_SUN_E
+
 int
 vm_unmap_ptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 		   vm_paddr_t gpa, size_t len, vm_paddr_t hpa)

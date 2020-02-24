@@ -145,6 +145,7 @@ struct vm_memmap {
 	uint64_t len;	/* mmap length */
 	/** memory mapping attribute */
 	uint32_t prot;	/* RWX */
+	uint64_t rsv_gpa;
 };
 
 /**

@@ -642,10 +642,19 @@ cfginitbar(struct vmctx *ctx, struct passthru_dev *ptdev)
 				return -1;
 			}
 		} else if (bartype != PCIBAR_IO) {
-			/* Map the physical BAR in the guest MMIO space */
-			error = vm_map_ptdev_mmio(ctx, ptdev->sel.bus,
-				ptdev->sel.dev, ptdev->sel.func,
-				dev->bar[i].addr, dev->bar[i].size, base);
+			//DEBUG_SUN: reserve mmio page
+			//if ((ptdev->sel.bus==0) && (ptdev->sel.dev==2) && (ptdev->sel.dev==0) && (i == 0)) {
+			//	perror("DEBUG_SUN: Reserve GPU CLOS resgister page for trapping");
+			//	error = vm_map_ptdev_mmio_rsv(ctx, ptdev->sel.bus,
+			//		ptdev->sel.dev, ptdev->sel.func,
+			//		dev->bar[i].addr, dev->bar[i].size, base, dev->bar[i].addr);
+			//}
+			//else {
+				/* Map the physical BAR in the guest MMIO space */
+				error = vm_map_ptdev_mmio(ctx, ptdev->sel.bus,
+					ptdev->sel.dev, ptdev->sel.func,
+					dev->bar[i].addr, dev->bar[i].size, base);
+			//}
 			if (error)
 				return -1;
 		}

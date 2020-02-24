@@ -127,6 +127,10 @@ int	vm_assign_ptdev(struct vmctx *ctx, int bus, int slot, int func);
 int	vm_unassign_ptdev(struct vmctx *ctx, int bus, int slot, int func);
 int	vm_map_ptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 			  vm_paddr_t gpa, size_t len, vm_paddr_t hpa);
+//DEBUG_SUN:
+int	vm_map_ptdev_mmio_rsv(struct vmctx *ctx, int bus, int slot, int func,
+			  vm_paddr_t gpa, size_t len, vm_paddr_t hpa, vm_paddr_t rsv_gpa);
+//DEBUG_SUN_E
 int	vm_unmap_ptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 			  vm_paddr_t gpa, size_t len, vm_paddr_t hpa);
 int	vm_set_ptdev_msix_info(struct vmctx *ctx, struct ic_ptdev_irq *ptirq);

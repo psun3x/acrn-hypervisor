@@ -152,6 +152,7 @@ struct set_regions {
 	 * the max buffer size is one page.
 	 */
 	uint64_t regions_gpa;
+	uint64_t regions_rsv_gpa;
 } __aligned(8);
 
 /**

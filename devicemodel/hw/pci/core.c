@@ -733,6 +733,11 @@ update_bar_address(struct vmctx *ctx, struct pci_vdev *dev, uint64_t addr,
 	/* update bar mapping */
 	if (dev->dev_ops->vdev_update_bar_map && decode)
 		dev->dev_ops->vdev_update_bar_map(ctx, dev, idx, orig_addr);
+
+	//DEBUG_SUN: check decoded bar address
+	if ((dev->bus==0) && (dev->slot==2) && (dev->func==0)) {
+		pr_err("DEBUG_SUN: GPU bar[%d]=0x%016lx\n", idx, dev->bar[idx].addr);
+	}
 }
 
 static struct mmio_rsvd_rgn *
@@ -849,6 +854,11 @@ pci_emul_alloc_pbar(struct pci_vdev *pdi, int idx, uint64_t hostbase,
 	}
 
 	error = register_bar(pdi, idx);
+
+	//DEBUG_SUN: GPU hostbase
+	if ((pdi->bus == 0) && (pdi->slot == 2) && (pdi->func==0) && (idx == 0)) {
+		printf("DEBUG_SUN: GPU bar0 hostbase=0x%lx\n", hostbase);
+	}
 
 	if(error != 0){
 		/* FIXME: Currently, only gvt needs reserve regions.

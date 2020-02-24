@@ -31,6 +31,7 @@
 #include <mmu.h>
 #include <logmsg.h>
 #include "vpci_priv.h"
+#include <io.h>
 
 /**
  * @pre vdev != NULL
