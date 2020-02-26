@@ -592,6 +592,16 @@ passthru_update_bar_map(struct vmctx *ctx, struct pci_vdev *dev,
 			ptdev->sel.dev, ptdev->sel.func,
 			dev->bar[idx].addr, ptdev->bar[idx].size,
 			ptdev->bar[idx].addr);
+
+	//DEBUG_SUN: Unmap clos register page in GPU MMIO bar
+	if ((ptdev->sel.bus==0) && (ptdev->sel.dev==2) && (ptdev->sel.func==0) && (idx==0)) {
+		vm_map_ptdev_mmio(ctx, ptdev->sel.bus,
+			ptdev->sel.dev, ptdev->sel.func,
+			dev->bar[idx].addr+0x9000, 4096,
+			ptdev->bar[idx].addr);
+		pr_err("DEBUG_SUN: Reserved GPU MMIO range [0x%x~0x%x]", 
+				dev->bar[idx].addr+0x9000, dev->bar[idx].addr+0x9000+4096);
+	}
 }
 
 /* bind pin info for pass-through device */

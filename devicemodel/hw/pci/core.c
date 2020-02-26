@@ -552,6 +552,12 @@ pci_emul_mem_handler(struct vmctx *ctx, int vcpu, int dir, uint64_t addr,
 		}
 	}
 
+	//DEBUG_SUN: Trap GPU MMIO access
+	if ((pdi->bus==0) && (pdi->slot==2) && (pdi->func==0)) {
+		pr_err("DEBUG_SUN: GPU bar access captured: bar(%d) addr=0x%x offset=0x%x val=0x%x\n", 
+				bidx, pdi->bar[bidx].addr, offset, *val);
+	}
+
 	return 0;
 }
 
