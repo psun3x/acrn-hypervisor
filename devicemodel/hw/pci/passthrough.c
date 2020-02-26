@@ -131,6 +131,17 @@ struct passthru_dev {
 	struct mmio_map	msix_bar_mmio[2];
 };
 
+#define MMIO_ACCESS_MAX 1024
+static struct mmio_access_info {
+	uint8_t direction;
+	uint8_t bar;
+	uint8_t size;
+	uint8_t reserve;
+	uint32_t offset;
+	uint64_t value;
+} gpu_mmio_access[MMIO_ACCESS_MAX];
+static int gpu_mmio_access_num = 0;
+
 static int
 msi_caplen(int msgctrl)
 {
@@ -679,6 +690,24 @@ deinit_igd_mmio(struct vmctx *ctx, struct passthru_dev *ptdev)
 				dev->bar[0].addr + 0xA000,
 				ptdev->bar[0].size - 0xA000,
 				ptdev->bar[0].addr + 0xA000);
+
+	// Dump mmio access statics
+	for(int i = 0; i < gpu_mmio_access_num; i++) {
+		if (gpu_mmio_access[i].direction) {
+			pr_notice("gpu_mmio_read,bar=%d,offset=0x%lx,size=%d,value=0x%016x\n", 
+					gpu_mmio_access[i].bar,
+					gpu_mmio_access[i].offset,
+					gpu_mmio_access[i].size,
+					gpu_mmio_access[i].value);
+		}
+		else {
+			pr_notice("gpu_mmio_write,bar=%d,offset=0x%lx,size=%d,value=0x%016x\n", 
+					gpu_mmio_access[i].bar,
+					gpu_mmio_access[i].offset,
+					gpu_mmio_access[i].size,
+					gpu_mmio_access[i].value);
+		}
+	}
 }
 
 
@@ -1315,9 +1344,17 @@ passthru_write(struct vmctx *ctx, int vcpu, struct pci_vdev *dev, int baridx,
 	if (baridx == ptdev_msix_table_bar(ptdev)) {
 		msix_table_write(ptdev, offset, size, value);
 	} else if (baridx == 0) {
-		pr_notice("passthru_write bar= %d offset=0x%lx, size=%d value:%lx\n", baridx, offset, size, value);
 		igd_mmio_write(ptdev, offset, size, value);
-	}else {
+		//pr_notice("passthru_write;bar=%d;offset=0x%lx;size=%d;value=0x%016lx\n", baridx, offset, size, value);
+		if (gpu_mmio_access_num < MMIO_ACCESS_MAX) {
+			gpu_mmio_access[gpu_mmio_access_num].direction = 1;
+			gpu_mmio_access[gpu_mmio_access_num].bar = baridx;
+			gpu_mmio_access[gpu_mmio_access_num].offset = offset;
+			gpu_mmio_access[gpu_mmio_access_num].size = size;
+			gpu_mmio_access[gpu_mmio_access_num].value = value;
+			gpu_mmio_access_num++;
+		}
+	} else {
 		/* TODO: Add support for IO BAR of PTDev */
 		warnx("Passthru: PIO write not supported, ignored\n");
 	}
@@ -1336,7 +1373,15 @@ passthru_read(struct vmctx *ctx, int vcpu, struct pci_vdev *dev, int baridx,
 		val = msix_table_read(ptdev, offset, size);
 	} else if (baridx == 0) {
 		val = igd_mmio_read(ptdev, offset, size);
-		pr_notice("passthru_read: bar= %d offset=0x%lx, size=%d value:%lx \n", baridx, offset, size, val);
+		//pr_notice("passthru_read;bar=%d;offset=0x%lx;size=%d;value=0x%016lx\n", baridx, offset, size, val);
+		if (gpu_mmio_access_num < MMIO_ACCESS_MAX) {
+			gpu_mmio_access[gpu_mmio_access_num].direction = 0;
+			gpu_mmio_access[gpu_mmio_access_num].bar = baridx;
+			gpu_mmio_access[gpu_mmio_access_num].offset = offset;
+			gpu_mmio_access[gpu_mmio_access_num].size = size;
+			gpu_mmio_access[gpu_mmio_access_num].value = val;
+			gpu_mmio_access_num++;
+		}
 	} else {
 
 		pr_notice("passthru_read: bar= %d offset=0x%lx, size=%d\n", baridx, offset, size);
