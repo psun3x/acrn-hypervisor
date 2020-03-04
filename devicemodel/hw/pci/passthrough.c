@@ -131,16 +131,18 @@ struct passthru_dev {
 	struct mmio_map	msix_bar_mmio[2];
 };
 
-#define MMIO_ACCESS_MAX 1024
-static struct mmio_access_info {
-	uint8_t direction;
-	uint8_t bar;
-	uint8_t size;
-	uint8_t reserve;
-	uint32_t offset;
-	uint64_t value;
-} gpu_mmio_access[MMIO_ACCESS_MAX];
-static int gpu_mmio_access_num = 0;
+//#define MMIO_ACCESS_MAX 1024
+//static struct mmio_access_info {
+//	uint8_t direction;
+//	uint8_t bar;
+//	uint8_t size;
+//	uint8_t reserve;
+//	uint32_t offset;
+//	uint64_t value;
+//} gpu_mmio_access[MMIO_ACCESS_MAX];
+//static int gpu_mmio_access_num = 0;
+static int64_t gpu_snpcr_old = 0;
+static int64_t gpu_idicr_old = 0;
 
 static int
 msi_caplen(int msgctrl)
@@ -651,7 +653,13 @@ init_igd_mmio(struct vmctx *ctx, struct passthru_dev *ptdev, uint64_t base)
 		return error;
 	}
 
-	error = vm_unmap_ptdev_mmio(ctx, b, s, f, start+0x9000, 0x1000, base+0x9000);
+	//error = vm_unmap_ptdev_mmio(ctx, b, s, f, start+0x9000, 0x1000, base+0x9000);
+	//if (error) {
+	//	warnx("Failed to unmap igd BAR[0] hole on %x/%x/%x", b,s,f);
+	//	return error;
+	//}
+	
+	error = vm_unmap_ptdev_mmio(ctx, b, s, f, start, 0x200000, base);
 	if (error) {
 		warnx("Failed to unmap igd BAR[0] hole on %x/%x/%x", b,s,f);
 		return error;
@@ -680,34 +688,40 @@ deinit_igd_mmio(struct vmctx *ctx, struct passthru_dev *ptdev)
 	}
 	*/
 	/* or remove the 2 segments */
-	vm_unmap_ptdev_mmio(ctx, ptdev->sel.bus,
-				ptdev->sel.dev, ptdev->sel.func,
-				dev->bar[0].addr, 0x9000,
-				ptdev->bar[0].addr);
+	//vm_unmap_ptdev_mmio(ctx, ptdev->sel.bus,
+	//			ptdev->sel.dev, ptdev->sel.func,
+	//			dev->bar[0].addr, 0x9000,
+	//			ptdev->bar[0].addr);
+
+	//vm_unmap_ptdev_mmio(ctx, ptdev->sel.bus,
+	//			ptdev->sel.dev, ptdev->sel.func,
+	//			dev->bar[0].addr + 0xA000,
+	//			ptdev->bar[0].size - 0xA000,
+	//			ptdev->bar[0].addr + 0xA000);
 
 	vm_unmap_ptdev_mmio(ctx, ptdev->sel.bus,
 				ptdev->sel.dev, ptdev->sel.func,
-				dev->bar[0].addr + 0xA000,
-				ptdev->bar[0].size - 0xA000,
-				ptdev->bar[0].addr + 0xA000);
+				dev->bar[0].addr + 0x200000,
+				ptdev->bar[0].size - 0x200000,
+				ptdev->bar[0].addr + 0x200000);
 
 	// Dump mmio access statics
-	for(int i = 0; i < gpu_mmio_access_num; i++) {
-		if (gpu_mmio_access[i].direction) {
-			pr_notice("gpu_mmio_read,bar=%d,offset=0x%lx,size=%d,value=0x%016x\n", 
-					gpu_mmio_access[i].bar,
-					gpu_mmio_access[i].offset,
-					gpu_mmio_access[i].size,
-					gpu_mmio_access[i].value);
-		}
-		else {
-			pr_notice("gpu_mmio_write,bar=%d,offset=0x%lx,size=%d,value=0x%016x\n", 
-					gpu_mmio_access[i].bar,
-					gpu_mmio_access[i].offset,
-					gpu_mmio_access[i].size,
-					gpu_mmio_access[i].value);
-		}
-	}
+	//for(int i = 0; i < gpu_mmio_access_num; i++) {
+	//	if (gpu_mmio_access[i].direction) {
+	//		pr_notice("gpu_mmio_read,bar=%d,offset=0x%lx,size=%d,value=0x%016x\n", 
+	//				gpu_mmio_access[i].bar,
+	//				gpu_mmio_access[i].offset,
+	//				gpu_mmio_access[i].size,
+	//				gpu_mmio_access[i].value);
+	//	}
+	//	else {
+	//		pr_notice("gpu_mmio_write,bar=%d,offset=0x%lx,size=%d,value=0x%016x\n", 
+	//				gpu_mmio_access[i].bar,
+	//				gpu_mmio_access[i].offset,
+	//				gpu_mmio_access[i].size,
+	//				gpu_mmio_access[i].value);
+	//	}
+	//}
 }
 
 
@@ -1338,6 +1352,7 @@ passthru_write(struct vmctx *ctx, int vcpu, struct pci_vdev *dev, int baridx,
 	       uint64_t offset, int size, uint64_t value)
 {
 	struct passthru_dev *ptdev;
+	uint64_t val;
 
 	ptdev = dev->arg;
 
@@ -1345,15 +1360,40 @@ passthru_write(struct vmctx *ctx, int vcpu, struct pci_vdev *dev, int baridx,
 		msix_table_write(ptdev, offset, size, value);
 	} else if (baridx == 0) {
 		igd_mmio_write(ptdev, offset, size, value);
-		//pr_notice("passthru_write;bar=%d;offset=0x%lx;size=%d;value=0x%016lx\n", baridx, offset, size, value);
-		if (gpu_mmio_access_num < MMIO_ACCESS_MAX) {
-			gpu_mmio_access[gpu_mmio_access_num].direction = 1;
-			gpu_mmio_access[gpu_mmio_access_num].bar = baridx;
-			gpu_mmio_access[gpu_mmio_access_num].offset = offset;
-			gpu_mmio_access[gpu_mmio_access_num].size = size;
-			gpu_mmio_access[gpu_mmio_access_num].value = value;
-			gpu_mmio_access_num++;
+		pr_notice("passthru_write;bar=%d;offset=0x%lx;size=%d;value=0x%016lx\n", baridx, offset, size, value);
+
+		if ((offset == 0x9008) && (value != 0)) {
+			gpu_idicr_old = value;
 		}
+		if ((offset == 0x900c) && (value != 0)) {
+			gpu_snpcr_old = value;
+		}
+
+		val = igd_mmio_read(ptdev, 0x9008, 4);
+		pr_notice("monitor;mmio(0x9008)=0x%016lx\n", val);
+		if ((val == 0) && (gpu_idicr_old != 0)) {
+			igd_mmio_write(ptdev, 0x9008, 4, gpu_idicr_old);
+			pr_notice("correct;mmio(0x9008)=0x%016lx\n", gpu_idicr_old);
+			val = igd_mmio_read(ptdev, 0x9008, 4);
+			pr_notice("verify;mmio(0x9008)=0x%016lx\n", val);
+		}
+
+		val = igd_mmio_read(ptdev, 0x900c, 4);
+		pr_notice("monitor;mmio(0x900c)=0x%016lx\n", val);
+		if ((val == 0) && (gpu_snpcr_old != 0)) {
+			igd_mmio_write(ptdev, 0x900c, 4, gpu_snpcr_old);
+			pr_notice("correct;mmio(0x900c)=0x%016lx\n", gpu_snpcr_old);
+			val = igd_mmio_read(ptdev, 0x900c, 4);
+			pr_notice("verify;mmio(0x900c)=0x%016lx\n", val);
+		}
+		//if (gpu_mmio_access_num < MMIO_ACCESS_MAX) {
+		//	gpu_mmio_access[gpu_mmio_access_num].direction = 1;
+		//	gpu_mmio_access[gpu_mmio_access_num].bar = baridx;
+		//	gpu_mmio_access[gpu_mmio_access_num].offset = offset;
+		//	gpu_mmio_access[gpu_mmio_access_num].size = size;
+		//	gpu_mmio_access[gpu_mmio_access_num].value = value;
+		//	gpu_mmio_access_num++;
+		//}
 	} else {
 		/* TODO: Add support for IO BAR of PTDev */
 		warnx("Passthru: PIO write not supported, ignored\n");
@@ -1373,15 +1413,22 @@ passthru_read(struct vmctx *ctx, int vcpu, struct pci_vdev *dev, int baridx,
 		val = msix_table_read(ptdev, offset, size);
 	} else if (baridx == 0) {
 		val = igd_mmio_read(ptdev, offset, size);
-		//pr_notice("passthru_read;bar=%d;offset=0x%lx;size=%d;value=0x%016lx\n", baridx, offset, size, val);
-		if (gpu_mmio_access_num < MMIO_ACCESS_MAX) {
-			gpu_mmio_access[gpu_mmio_access_num].direction = 0;
-			gpu_mmio_access[gpu_mmio_access_num].bar = baridx;
-			gpu_mmio_access[gpu_mmio_access_num].offset = offset;
-			gpu_mmio_access[gpu_mmio_access_num].size = size;
-			gpu_mmio_access[gpu_mmio_access_num].value = val;
-			gpu_mmio_access_num++;
+		pr_notice("passthru_read;bar=%d;offset=0x%lx;size=%d;value=0x%016lx\n", baridx, offset, size, val);
+		if ((offset == 0x9008) && (val != 0)) {
+			gpu_idicr_old = val;
 		}
+		if ((offset == 0x900c) && (val != 0)) {
+			gpu_snpcr_old = val;
+		}
+
+		//if (gpu_mmio_access_num < MMIO_ACCESS_MAX) {
+		//	gpu_mmio_access[gpu_mmio_access_num].direction = 0;
+		//	gpu_mmio_access[gpu_mmio_access_num].bar = baridx;
+		//	gpu_mmio_access[gpu_mmio_access_num].offset = offset;
+		//	gpu_mmio_access[gpu_mmio_access_num].size = size;
+		//	gpu_mmio_access[gpu_mmio_access_num].value = val;
+		//	gpu_mmio_access_num++;
+		//}
 	} else {
 
 		pr_notice("passthru_read: bar= %d offset=0x%lx, size=%d\n", baridx, offset, size);
